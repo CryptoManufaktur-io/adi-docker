@@ -5,9 +5,9 @@ See README.md for project overview and setup.
 ## Build & Validate
 
 ```bash
-shellcheck -x ethd scripts/check_sync.sh
+shellcheck -x ethd scripts/*.sh
 pre-commit run --all-files
-cp default.env .env && GENERAL_L1_RPC_URL=https://eth-main-a.cryptomanufaktur.net docker compose config >/tmp/adi-compose.yml
+cp default.env .env && GENERAL_L1_RPC_URL=https://archive-eth.example.com docker compose config >/tmp/adi-compose.yml
 ```
 
 ## Code Style
@@ -27,6 +27,8 @@ cp default.env .env && GENERAL_L1_RPC_URL=https://eth-main-a.cryptomanufaktur.ne
 - Test update flow after any env/migration changes: `cp default.env .env && ./ethd update --debug`
 - ADI requires an archive Ethereum L1 RPC in `GENERAL_L1_RPC_URL`; pruned L1 endpoints can panic at startup.
 - ADI uses port `3050` for both HTTP and WebSocket JSON-RPC.
+- ADI mainnet chain ID is fixed at `36900` / `0x9024`; do not make chain-id validation inventory-configurable.
+- Persistent node/proof state lives in the `DATA_VOLUME` Docker volume.
 
 ## Key Customization Points in ethd
 

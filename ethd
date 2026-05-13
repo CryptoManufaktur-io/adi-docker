@@ -52,25 +52,7 @@ __get_env_or_default() {
 
 
 __prep_conffiles() {
-  local __data_dir
-  __get_env_or_default DATA_DIR "__data_dir"
-  if [ -z "${__data_dir}" ]; then
-    __data_dir="./mainnet_data"
-  fi
-
-  mkdir -p \
-    "${__data_dir}" \
-    "${__data_dir}/db" \
-    "${__data_dir}/db/node1" \
-    "${__data_dir}/db/node1/block_dumps" \
-    "${__data_dir}/db/shared"
-
-  chmod 0777 \
-    "${__data_dir}" \
-    "${__data_dir}/db" \
-    "${__data_dir}/db/node1" \
-    "${__data_dir}/db/node1/block_dumps" \
-    "${__data_dir}/db/shared" >/dev/null 2>&1 || true
+  :
 }
 
 

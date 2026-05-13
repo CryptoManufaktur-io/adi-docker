@@ -29,7 +29,7 @@ LOCAL_RPC="${LOCAL_RPC:-}"
 PUBLIC_RPC="${PUBLIC_RPC:-}"
 BLOCK_LAG_THRESHOLD="${BLOCK_LAG_THRESHOLD:-5}"
 INSTALL_TOOLS="${INSTALL_TOOLS:-1}"
-EXPECTED_CHAIN_ID="${EXPECTED_CHAIN_ID:-0x9024}"
+ADI_EXPECTED_CHAIN_ID="0x9024"
 
 load_env_file() {
   local file="$1"
@@ -116,7 +116,6 @@ resolve_defaults() {
 
   LOCAL_RPC="${LOCAL_RPC:-http://127.0.0.1:${RPC_PORT:-3050}}"
   PUBLIC_RPC="${PUBLIC_RPC:-${PUBLIC_RPC_URL:-${PUBLIC_RPC_DEFAULT:-https://rpc.adifoundation.ai}}}"
-  EXPECTED_CHAIN_ID="${EXPECTED_CHAIN_ID:-0x9024}"
 }
 
 resolve_container() {
@@ -208,8 +207,8 @@ check_chain_id() {
     fail "$label RPC unreachable ($rpc)"
   chain_id="$(echo "$response" | jq_get '.result // empty')" ||
     fail "failed to parse $label chain ID"
-  [[ "$chain_id" == "$EXPECTED_CHAIN_ID" ]] ||
-    fail "$label chain ID $chain_id does not match expected $EXPECTED_CHAIN_ID"
+  [[ "$chain_id" == "$ADI_EXPECTED_CHAIN_ID" ]] ||
+    fail "$label chain ID $chain_id does not match expected $ADI_EXPECTED_CHAIN_ID"
 }
 
 node_reports_syncing() {

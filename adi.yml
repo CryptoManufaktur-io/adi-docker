@@ -7,19 +7,40 @@
 # =============================================================================
 
 services:
+  init-data:
+    image: ${BUSYBOX_DOCKER_REPO:-busybox}:${BUSYBOX_DOCKER_TAG:-1.36.1}
+    container_name: ${PROJECT_NAME}-init-data
+    restart: "no"
+    command:
+      - sh
+      - -c
+      - |
+        mkdir -p /chain/db/node1/block_dumps /chain/db/shared
+        chmod -R 0777 /chain
+    volumes:
+      - ${DATA_VOLUME:-adi-data}:/chain
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "3"
+
   proof-sync:
     image: ${AZCOPY_DOCKER_REPO}:${AZCOPY_DOCKER_TAG}
     container_name: ${PROJECT_NAME}-proof-sync
     restart: unless-stopped
-    entrypoint: ["/bin/sh", "/sync-proofs.sh"]
+    entrypoint: ["/bin/sh", "/usr/local/bin/sync-proofs.sh"]
     environment:
       PROOF_STORAGE_URL: ${PROOF_STORAGE_URL:-https://adimainnet.blob.core.windows.net/proofs}
       SHARED_PROOF_DIR: /chain/db/shared
       SYNC_INTERVAL: ${PROOF_SYNC_INTERVAL:-60}
       DELETE_DESTINATION: ${PROOF_SYNC_DELETE:-false}
     volumes:
-      - ${DATA_DIR:-./mainnet_data}:/chain
-      - ./sync-proofs.sh:/sync-proofs.sh:ro
+      - ${DATA_VOLUME:-adi-data}:/chain
+      - ./scripts/sync-proofs.sh:/usr/local/bin/sync-proofs.sh:ro
+    depends_on:
+      init-data:
+        condition: service_completed_successfully
     logging:
       driver: json-file
       options:
@@ -35,7 +56,7 @@ services:
     environment:
       genesis_bridgehub_address: ${BRIDGEHUB_ADDRESS:-0x7a38c18a229ef8a0ae7104ba272a46280f2d59cb}
       genesis_bytecode_supplier_address: ${BYTECODE_SUPPLIER_ADDRESS:-0x6e369e616dd5a5cb0cd410f541c784033de89042}
-      genesis_chain_id: ${CHAIN_ID:-36900}
+      genesis_chain_id: 36900
       sequencer_block_replay_download_address: https://replay.adifoundation.ai
       general_main_node_rpc_url: ${MAIN_RPC_URL:-https://rpc.adifoundation.ai}
       general_rocks_db_path: /chain/db/node1
@@ -49,8 +70,21 @@ services:
       genesis_genesis_input_path: /genesis/genesis.json
       RUST_LOG: ${RUST_LOG:-info,zksync_os_server=info,zksync_os_sequencer=info,zksync_os_merkle_tree=info,zksync_os_priority_tree=info,zksync_os_server::prover_api=info}
     volumes:
-      - ${DATA_DIR:-./mainnet_data}:/chain
+      - ${DATA_VOLUME:-adi-data}:/chain
       - ./genesis/mainnet.json:/genesis/genesis.json:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          bash -ec 'payload="{\"jsonrpc\":\"2.0\",\"method\":\"eth_chainId\",\"params\":[],\"id\":1}";
+          exec 3<>/dev/tcp/127.0.0.1/${RPC_PORT:-3050};
+          printf "POST / HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: %s\r\nConnection: close\r\n\r\n%s"
+          "$${#payload}" "$$payload" >&3;
+          grep -Eq "\"result\"[[:space:]]*:[[:space:]]*\"0x9024\"" <&3'
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
     labels:
       - traefik.enable=true
       - traefik.docker.network=${DOCKER_EXT_NETWORK}
@@ -77,11 +111,17 @@ services:
       - metrics.port=${METRICS_PORT:-3312}
       - metrics.instance=adi
       - metrics.network=${NETWORK:-mainnet}
-      - metrics.chain_id=${CHAIN_ID:-36900}
+      - metrics.chain_id=36900
     depends_on:
-      - proof-sync
+      init-data:
+        condition: service_completed_successfully
+      proof-sync:
+        condition: service_started
     logging:
       driver: json-file
       options:
         max-size: "100m"
         max-file: "3"
+
+volumes:
+  adi-data:

@@ -53,7 +53,8 @@ Key variables in `.env`:
 | `NODE_DOCKER_TAG` | ADI external node image tag | `v0.13.0-b1` |
 | `AZCOPY_DOCKER_REPO` | Proof-sync image repo | `peterdavehello/azcopy` |
 | `AZCOPY_DOCKER_TAG` | Proof-sync image tag | `10.27.1` |
-| `DATA_DIR` | Node/proof data directory | `./mainnet_data` |
+| `BUSYBOX_DOCKER_REPO` / `BUSYBOX_DOCKER_TAG` | Data volume initializer image | `busybox` / `1.36.1` |
+| `DATA_VOLUME` | Docker volume for node/proof data | `adi-data` |
 | `GENERAL_L1_RPC_URL` | Required archive Ethereum L1 RPC | empty |
 | `PUBLIC_RPC` | Reference RPC for sync checks | `https://rpc.adifoundation.ai` |
 | `RPC_HOST` / `WS_HOST` | Traefik route hostnames | `adi` / `adiws` |
@@ -85,6 +86,7 @@ WS_LB=adiws-lb
 
 ## Services
 
+- `init-data`: one-shot initializer for the shared Docker data volume.
 - `adi`: ADI external node, serving JSON-RPC on port `3050`.
 - `proof-sync`: `azcopy` sidecar that keeps `/chain/db/shared` synchronized from ADI Azure Blob proof storage.
 
