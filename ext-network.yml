@@ -1,0 +1,17 @@
+# =============================================================================
+# Ext Network Overlay - Attach ADI to the external Traefik network
+# =============================================================================
+# Add :ext-network.yml to COMPOSE_FILE in .env to publish ADI via Traefik.
+# Traefik labels live in adi.yml.
+# =============================================================================
+
+services:
+  adi:
+    networks:
+      - default
+      - ext-network
+
+networks:
+  ext-network:
+    external: true
+    name: ${DOCKER_EXT_NETWORK}

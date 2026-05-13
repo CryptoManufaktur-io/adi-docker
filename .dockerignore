@@ -1,0 +1,8 @@
+.git
+.github
+data/
+mainnet_data/
+.env
+*.bak
+*.partial
+*.source

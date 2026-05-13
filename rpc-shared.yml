@@ -1,0 +1,13 @@
+# =============================================================================
+# RPC Shared - Expose ADI RPC, status, and metrics ports on localhost
+# =============================================================================
+# Add :rpc-shared.yml to COMPOSE_FILE in .env to expose ADI locally without
+# publishing the ports on the public interface.
+# =============================================================================
+
+services:
+  adi:
+    ports:
+      - "127.0.0.1:${RPC_PORT:-3050}:${RPC_PORT:-3050}"
+      - "127.0.0.1:${STATUS_PORT:-3071}:${STATUS_PORT:-3071}"
+      - "127.0.0.1:${METRICS_PORT:-3312}:${METRICS_PORT:-3312}"

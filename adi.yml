@@ -1,0 +1,87 @@
+# =============================================================================
+# ADI Docker - Primary Compose File
+# =============================================================================
+# ADI mainnet external node. ADI is a zkSync-based L2; the external node
+# replays L2 blocks locally and requires an archive Ethereum L1 RPC.
+# Upstream: https://github.com/ADI-Foundation-Labs/ADI-Stack-EN-Setup-script
+# =============================================================================
+
+services:
+  proof-sync:
+    image: ${AZCOPY_DOCKER_REPO}:${AZCOPY_DOCKER_TAG}
+    container_name: ${PROJECT_NAME}-proof-sync
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/sync-proofs.sh"]
+    environment:
+      PROOF_STORAGE_URL: ${PROOF_STORAGE_URL:-https://adimainnet.blob.core.windows.net/proofs}
+      SHARED_PROOF_DIR: /chain/db/shared
+      SYNC_INTERVAL: ${PROOF_SYNC_INTERVAL:-60}
+      DELETE_DESTINATION: ${PROOF_SYNC_DELETE:-false}
+    volumes:
+      - ${DATA_DIR:-./mainnet_data}:/chain
+      - ./sync-proofs.sh:/sync-proofs.sh:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+  adi:
+    image: ${NODE_DOCKER_REPO}:${NODE_DOCKER_TAG}
+    container_name: ${PROJECT_NAME}-node
+    restart: unless-stopped
+    stop_grace_period: 10m
+    working_dir: /app
+    environment:
+      genesis_bridgehub_address: ${BRIDGEHUB_ADDRESS:-0x7a38c18a229ef8a0ae7104ba272a46280f2d59cb}
+      genesis_bytecode_supplier_address: ${BYTECODE_SUPPLIER_ADDRESS:-0x6e369e616dd5a5cb0cd410f541c784033de89042}
+      genesis_chain_id: ${CHAIN_ID:-36900}
+      sequencer_block_replay_download_address: https://replay.adifoundation.ai
+      general_main_node_rpc_url: ${MAIN_RPC_URL:-https://rpc.adifoundation.ai}
+      general_rocks_db_path: /chain/db/node1
+      prover_api_object_store_file_backed_base_path: /chain/db/shared
+      sequencer_block_dump_path: /chain/db/node1/block_dumps
+      sequencer_block_replay_server_address: 0.0.0.0:${REPLAY_PORT:-3054}
+      rpc_address: 0.0.0.0:${RPC_PORT:-3050}
+      status_server_address: 0.0.0.0:${STATUS_PORT:-3071}
+      observability_prometheus_port: ${METRICS_PORT:-3312}
+      general_l1_rpc_url: ${GENERAL_L1_RPC_URL}
+      genesis_genesis_input_path: /genesis/genesis.json
+      RUST_LOG: ${RUST_LOG:-info,zksync_os_server=info,zksync_os_sequencer=info,zksync_os_merkle_tree=info,zksync_os_priority_tree=info,zksync_os_server::prover_api=info}
+    volumes:
+      - ${DATA_DIR:-./mainnet_data}:/chain
+      - ./genesis/mainnet.json:/genesis/genesis.json:ro
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${DOCKER_EXT_NETWORK}
+      - traefik.http.routers.${RPC_HOST}.entrypoints=websecure
+      - traefik.http.routers.${RPC_HOST}.rule=Host(`${RPC_HOST}.${DOMAIN}`)
+      - traefik.http.routers.${RPC_HOST}.tls.certresolver=letsencrypt
+      - traefik.http.routers.${RPC_HOST}.service=${RPC_LB}
+      - traefik.http.routers.${RPC_HOST}lb.entrypoints=websecure
+      - traefik.http.routers.${RPC_HOST}lb.rule=Host(`${RPC_LB}.${DOMAIN}`)
+      - traefik.http.routers.${RPC_HOST}lb.tls.certresolver=letsencrypt
+      - traefik.http.routers.${RPC_HOST}lb.service=${RPC_LB}
+      - traefik.http.services.${RPC_LB}.loadbalancer.server.port=${RPC_PORT:-3050}
+      - traefik.http.routers.${WS_HOST}.entrypoints=websecure
+      - traefik.http.routers.${WS_HOST}.rule=Host(`${WS_HOST}.${DOMAIN}`)
+      - traefik.http.routers.${WS_HOST}.tls.certresolver=letsencrypt
+      - traefik.http.routers.${WS_HOST}.service=${WS_LB}
+      - traefik.http.routers.${WS_HOST}lb.entrypoints=websecure
+      - traefik.http.routers.${WS_HOST}lb.rule=Host(`${WS_LB}.${DOMAIN}`)
+      - traefik.http.routers.${WS_HOST}lb.tls.certresolver=letsencrypt
+      - traefik.http.routers.${WS_HOST}lb.service=${WS_LB}
+      - traefik.http.services.${WS_LB}.loadbalancer.server.port=${WS_PORT:-3050}
+      - metrics.scrape=true
+      - metrics.path=/metrics
+      - metrics.port=${METRICS_PORT:-3312}
+      - metrics.instance=adi
+      - metrics.network=${NETWORK:-mainnet}
+      - metrics.chain_id=${CHAIN_ID:-36900}
+    depends_on:
+      - proof-sync
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "3"
