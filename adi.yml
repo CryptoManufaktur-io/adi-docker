@@ -38,11 +38,13 @@ services:
         condition: service_completed_successfully
     <<: *logging
 
-  node:
+  adi:
     image: ${NODE_DOCKER_REPO}:${NODE_DOCKER_TAG}
     container_name: ${PROJECT_NAME}-node
     restart: unless-stopped
-    stop_grace_period: 10m
+    stop_grace_period: 20m
+    mem_limit: 28g
+    mem_reservation: 16g
     working_dir: /app
     environment:
       genesis_bridgehub_address: ${BRIDGEHUB_ADDRESS:-0x7a38c18a229ef8a0ae7104ba272a46280f2d59cb}
@@ -73,8 +75,8 @@ services:
           grep -Eq '"result"[[:space:]]*:[[:space:]]*"0x9024"' <&3
       interval: 30s
       timeout: 10s
-      retries: 5
-      start_period: 120s
+      retries: 10
+      start_period: 15m
     labels:
       - traefik.enable=true
       - traefik.http.routers.${RPC_HOST}.entrypoints=websecure

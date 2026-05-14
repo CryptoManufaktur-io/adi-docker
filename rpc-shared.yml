@@ -1,5 +1,5 @@
 services:
-  node:
+  adi:
     ports:
       # ADI multiplexes JSON-RPC HTTP and WebSocket on a single port (3050)
       - 127.0.0.1:${RPC_PORT:-3050}:${RPC_PORT:-3050}

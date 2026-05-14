@@ -1,5 +1,5 @@
 services:
-  node:
+  adi:
     networks:
       - default
       - ext-network

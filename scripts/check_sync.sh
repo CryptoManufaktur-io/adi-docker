@@ -35,7 +35,7 @@ USAGE
 
 ENV_FILE="${ENV_FILE:-}"
 CONTAINER="${CONTAINER:-}"
-DOCKER_SERVICE="${DOCKER_SERVICE:-node}"
+DOCKER_SERVICE="${DOCKER_SERVICE:-adi}"
 LOCAL_RPC="${LOCAL_RPC:-}"
 PUBLIC_RPC="${PUBLIC_RPC:-}"
 BLOCK_LAG_THRESHOLD="${BLOCK_LAG_THRESHOLD:-5}"
@@ -126,16 +126,47 @@ install_tools_in_container() {
 check_adi_sync() {
   echo "==> Checking ADI external node sync status"
 
-  local local_resp public_resp local_hex public_hex
-  local_resp="$(http_post "$LOCAL_RPC" '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}')" || exit 3
-  local_hex="$(printf '%s' "$local_resp" | jq_eval '.result')"
+  # 1. eth_syncing — node's self-reported sync state.
+  # ADI's zkSync-style external node can report a stale block height close
+  # to head while still replaying L2 blocks. eth_syncing returns an object
+  # while catching up, false once caught up. Treat this as the authoritative
+  # syncing signal; eth_blockNumber lag is then a sanity check.
+  local syncing_resp
+  if ! syncing_resp=$(http_post "$LOCAL_RPC" '{"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":1}'); then
+    echo "Failed to call eth_syncing on local node"
+    exit 3
+  fi
+  local syncing_result
+  syncing_result=$(printf '%s' "$syncing_resp" | jq_eval '.result')
+  if [[ -z "$syncing_result" || "$syncing_result" == "null" ]]; then
+    echo "Local node returned invalid eth_syncing response: $syncing_resp"
+    exit 3
+  fi
+  if [[ "$syncing_result" != "false" ]]; then
+    echo "Local node reports eth_syncing=true: $syncing_result"
+    exit 1
+  fi
+
+  # 2. eth_blockNumber lag check against the public ADI RPC.
+  local local_resp
+  if ! local_resp=$(http_post "$LOCAL_RPC" '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'); then
+    echo "Failed to call eth_blockNumber on local node"
+    exit 3
+  fi
+  local local_hex
+  local_hex=$(printf '%s' "$local_resp" | jq_eval '.result')
   if [[ -z "$local_hex" || "$local_hex" == "null" ]]; then
     echo "Failed to read local block number; response: $local_resp"
     exit 3
   fi
 
-  public_resp="$(http_post "$PUBLIC_RPC" '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}')" || exit 4
-  public_hex="$(printf '%s' "$public_resp" | jq_eval '.result')"
+  local public_resp
+  if ! public_resp=$(http_post "$PUBLIC_RPC" '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'); then
+    echo "Failed to call eth_blockNumber on public RPC"
+    exit 4
+  fi
+  local public_hex
+  public_hex=$(printf '%s' "$public_resp" | jq_eval '.result')
   if [[ -z "$public_hex" || "$public_hex" == "null" ]]; then
     echo "Failed to read public block number; response: $public_resp"
     exit 4
