@@ -81,6 +81,3 @@ All image tags are pinned in `default.env`. Bump deliberately; do not use `lates
 | Healthcheck stays `starting` for several minutes | Slow disk, insufficient RAM, or L2 replay lag from cold genesis | `./adid logs adi`; if RocksDB is busy persisting blocks, just wait. |
 | `./adid logs adi` shows `Connection refused` to `general_l1_rpc_url` | Inventory L1 endpoint down or wrong URL | Verify the L1 host is reachable; check ansible secret rendering |
 
-## Resource limits
-
-`stop_grace_period: 10m` on the `adi` service lets RocksDB flush cleanly on shutdown. No `mem_limit` / `cpus` are set; rpc7 hosts manage capacity at the host level.
