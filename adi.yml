@@ -56,8 +56,12 @@ services:
       - adi-data:/chain
       - ./genesis/mainnet.json:/genesis/genesis.json:ro
     healthcheck:
+      # bash is required for /dev/tcp/HOST/PORT (the default /bin/sh in this
+      # image is dash, which does not implement the /dev/tcp pseudo-device).
       test:
-        - CMD-SHELL
+        - CMD
+        - bash
+        - -c
         - >-
           payload='{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}';
           exec 3<>/dev/tcp/127.0.0.1/${RPC_PORT:-3050};
