@@ -29,7 +29,7 @@ cp default.env .env && ./adid check-sync; rm .env
 - `PUBLIC_RPC_URL` doubles as the external node's `general_main_node_rpc_url` and `check_sync.sh`'s reference RPC — same URL; do not split into two variables.
 - `check_sync.sh` exit codes: `0=synced, 1=syncing, 3=local RPC error, 4=public RPC error, 5=config error, 6=missing deps, 7=container error`. Code `2` (diverged) is intentionally not emitted (public RPC IS the main node).
 - Compose `${...}` interpolation conflicts with shell `${...}`; escape shell parameter expansion with `$$` (e.g. `$${#payload}`).
-- `traefik.docker.network=${DOCKER_EXT_NETWORK}` is intentionally omitted. If Traefik later routes to the wrong subnet, add it back.
+- `traefik.docker.network=${DOCKER_EXT_NETWORK}` is required. The `adi` container joins both `adi_default` and `traefik_default`; without this label Traefik may pick the wrong one and the route hangs after TLS handshake.
 
 ## Bumping the image
 
