@@ -13,8 +13,9 @@ ADI is a zkSync-based zk-rollup L2. The external node is read-only — it replay
 | `proof-sync` | `peterdavehello/azcopy:10.27.1` | On start, creates `/chain/db/node1/block_dumps` and `/chain/db/shared` (chmod `0777`); then loops `azcopy sync` from `adimainnet.blob.core.windows.net/proofs` |
 | `adi` | `harbor.sre.ideasoft.io/adi-chain/external-node:v0.13.0-b1` | ADI external node — JSON-RPC + WS on `:3050`, status on `:3071`, replay on `:3054`, metrics on `:3312` |
 
-Upstream reference: <https://github.com/ADI-Foundation-Labs/ADI-Stack-EN-Setup-script>
-Galaxy runbook: <https://github.com/smartcontractkit/node-ops-wiki/blob/main/docs/Blockchains/ADI_Setup_Guide.md>
+- Upstream setup script: <https://github.com/ADI-Foundation-Labs/ADI-Stack-EN-Setup-script>
+- ADI docs: <https://docs.adi.foundation/>
+- Galaxy runbook (GAL-689): <https://github.com/smartcontractkit/node-ops-wiki/blob/main/docs/Blockchains/ADI_Setup_Guide.md>
 
 ## Hardware
 
