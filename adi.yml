@@ -1,0 +1,112 @@
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  init-data:
+    image: ${BUSYBOX_DOCKER_REPO:-busybox}:${BUSYBOX_DOCKER_TAG:-1.36.1}
+    container_name: ${PROJECT_NAME}-init-data
+    restart: "no"
+    command:
+      - sh
+      - -c
+      - |
+        mkdir -p /chain/db/node1/block_dumps /chain/db/shared
+        chmod -R 0777 /chain
+    volumes:
+      - adi-data:/chain
+    <<: *logging
+
+  proof-sync:
+    image: ${AZCOPY_DOCKER_REPO}:${AZCOPY_DOCKER_TAG}
+    container_name: ${PROJECT_NAME}-proof-sync
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/usr/local/bin/sync-proofs.sh"]
+    environment:
+      PROOF_STORAGE_URL: ${PROOF_STORAGE_URL:-https://adimainnet.blob.core.windows.net/proofs}
+      SHARED_PROOF_DIR: /chain/db/shared
+      SYNC_INTERVAL: ${PROOF_SYNC_INTERVAL:-60}
+      DELETE_DESTINATION: ${PROOF_SYNC_DELETE:-false}
+    volumes:
+      - adi-data:/chain
+      - ./scripts/sync-proofs.sh:/usr/local/bin/sync-proofs.sh:ro
+    depends_on:
+      init-data:
+        condition: service_completed_successfully
+    <<: *logging
+
+  node:
+    image: ${NODE_DOCKER_REPO}:${NODE_DOCKER_TAG}
+    container_name: ${PROJECT_NAME}-node
+    restart: unless-stopped
+    stop_grace_period: 10m
+    working_dir: /app
+    environment:
+      genesis_bridgehub_address: ${BRIDGEHUB_ADDRESS:-0x7a38c18a229ef8a0ae7104ba272a46280f2d59cb}
+      genesis_bytecode_supplier_address: ${BYTECODE_SUPPLIER_ADDRESS:-0x6e369e616dd5a5cb0cd410f541c784033de89042}
+      genesis_chain_id: ${CHAIN_ID:-36900}
+      sequencer_block_replay_download_address: ${REPLAY_DOWNLOAD_URL:-https://replay.adifoundation.ai}
+      general_main_node_rpc_url: ${MAIN_RPC_URL:-https://rpc.adifoundation.ai}
+      general_rocks_db_path: /chain/db/node1
+      prover_api_object_store_file_backed_base_path: /chain/db/shared
+      sequencer_block_dump_path: /chain/db/node1/block_dumps
+      sequencer_block_replay_server_address: 0.0.0.0:${REPLAY_PORT:-3054}
+      rpc_address: 0.0.0.0:${RPC_PORT:-3050}
+      status_server_address: 0.0.0.0:${STATUS_PORT:-3071}
+      observability_prometheus_port: ${METRICS_PORT:-3312}
+      general_l1_rpc_url: ${GENERAL_L1_RPC_URL}
+      genesis_genesis_input_path: /genesis/genesis.json
+      RUST_LOG: ${RUST_LOG:-info,zksync_os_server=info,zksync_os_sequencer=info,zksync_os_merkle_tree=info,zksync_os_priority_tree=info,zksync_os_server::prover_api=info}
+    volumes:
+      - adi-data:/chain
+      - ./genesis/mainnet.json:/genesis/genesis.json:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          payload='{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}';
+          exec 3<>/dev/tcp/127.0.0.1/${RPC_PORT:-3050};
+          printf 'POST / HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: %s\r\nConnection: close\r\n\r\n%s' "${#payload}" "$$payload" >&3;
+          grep -Eq '"result"[[:space:]]*:[[:space:]]*"0x9024"' <&3
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.${RPC_HOST}.entrypoints=websecure
+      - traefik.http.routers.${RPC_HOST}.rule=Host(`${RPC_HOST}.${DOMAIN}`)
+      - traefik.http.routers.${RPC_HOST}.tls.certresolver=letsencrypt
+      - traefik.http.routers.${RPC_HOST}.service=${RPC_LB}
+      - traefik.http.routers.${RPC_HOST}lb.entrypoints=websecure
+      - traefik.http.routers.${RPC_HOST}lb.rule=Host(`${RPC_LB}.${DOMAIN}`)
+      - traefik.http.routers.${RPC_HOST}lb.tls.certresolver=letsencrypt
+      - traefik.http.routers.${RPC_HOST}lb.service=${RPC_LB}
+      - traefik.http.services.${RPC_LB}.loadbalancer.server.port=${RPC_PORT:-3050}
+      - traefik.http.routers.${WS_HOST}.entrypoints=websecure
+      - traefik.http.routers.${WS_HOST}.rule=Host(`${WS_HOST}.${DOMAIN}`)
+      - traefik.http.routers.${WS_HOST}.tls.certresolver=letsencrypt
+      - traefik.http.routers.${WS_HOST}.service=${WS_LB}
+      - traefik.http.routers.${WS_HOST}lb.entrypoints=websecure
+      - traefik.http.routers.${WS_HOST}lb.rule=Host(`${WS_LB}.${DOMAIN}`)
+      - traefik.http.routers.${WS_HOST}lb.tls.certresolver=letsencrypt
+      - traefik.http.routers.${WS_HOST}lb.service=${WS_LB}
+      - traefik.http.services.${WS_LB}.loadbalancer.server.port=${RPC_PORT:-3050}
+      - metrics.scrape=true
+      - metrics.path=/metrics
+      - metrics.port=${METRICS_PORT:-3312}
+      - metrics.instance=adi
+      - metrics.network=${NETWORK:-mainnet}
+      - metrics.chain_id=${CHAIN_ID:-36900}
+    depends_on:
+      init-data:
+        condition: service_completed_successfully
+      proof-sync:
+        condition: service_started
+    <<: *logging
+
+volumes:
+  adi-data:
