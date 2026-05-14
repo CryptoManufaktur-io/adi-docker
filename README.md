@@ -80,4 +80,3 @@ All image tags are pinned in `default.env`. Bump deliberately; do not use `lates
 | `proof-sync` keeps logging `azcopy sync failed with exit code N` | Network outage or auth issue to `adimainnet.blob.core.windows.net` | Check sidecar logs (`./adid logs proof-sync`); endpoint is public anonymous read so usually transient |
 | Healthcheck stays `starting` for several minutes | Slow disk, insufficient RAM, or L2 replay lag from cold genesis | `./adid logs adi`; if RocksDB is busy persisting blocks, just wait. |
 | `./adid logs adi` shows `Connection refused` to `general_l1_rpc_url` | Inventory L1 endpoint down or wrong URL | Verify the L1 host is reachable; check ansible secret rendering |
-
