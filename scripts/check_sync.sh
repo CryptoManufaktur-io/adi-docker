@@ -106,14 +106,17 @@ install_tools_in_container() {
   if [[ -z "$CONTAINER" || "$INSTALL_TOOLS" != "1" ]]; then
     return 0
   fi
-  docker exec -u root "$CONTAINER" sh -c '
+  # DEBIAN_FRONTEND=noninteractive + -qq suppresses the debconf TTY warnings
+  # that otherwise spam stdout on every invocation. apt-get also gets its
+  # stderr muted because warnings about non-stable releases are noisy here.
+  docker exec -u root -e DEBIAN_FRONTEND=noninteractive "$CONTAINER" sh -c '
     set -e
     if command -v curl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
       exit 0
     fi
     if command -v apt-get >/dev/null 2>&1; then
-      apt-get update -y >/dev/null
-      apt-get install -y curl jq ca-certificates >/dev/null
+      apt-get update -qq >/dev/null 2>&1
+      apt-get install -y -qq curl jq ca-certificates >/dev/null 2>&1
     elif command -v apk >/dev/null 2>&1; then
       apk add --no-cache curl jq ca-certificates >/dev/null
     else
