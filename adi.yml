@@ -6,20 +6,6 @@ x-logging: &logging
       max-file: "3"
 
 services:
-  init-data:
-    image: ${BUSYBOX_DOCKER_REPO:-busybox}:${BUSYBOX_DOCKER_TAG:-1.36.1}
-    container_name: ${PROJECT_NAME}-init-data
-    restart: "no"
-    command:
-      - sh
-      - -c
-      - |
-        mkdir -p /chain/db/node1/block_dumps /chain/db/shared
-        chmod -R 0777 /chain
-    volumes:
-      - adi-data:/chain
-    <<: *logging
-
   proof-sync:
     image: ${AZCOPY_DOCKER_REPO}:${AZCOPY_DOCKER_TAG}
     container_name: ${PROJECT_NAME}-proof-sync
@@ -27,24 +13,20 @@ services:
     entrypoint: ["/bin/sh", "/usr/local/bin/sync-proofs.sh"]
     environment:
       PROOF_STORAGE_URL: ${PROOF_STORAGE_URL:-https://adimainnet.blob.core.windows.net/proofs}
+      CHAIN_DATA_DIR: /chain
       SHARED_PROOF_DIR: /chain/db/shared
       SYNC_INTERVAL: ${PROOF_SYNC_INTERVAL:-60}
       DELETE_DESTINATION: ${PROOF_SYNC_DELETE:-false}
     volumes:
       - adi-data:/chain
       - ./scripts/sync-proofs.sh:/usr/local/bin/sync-proofs.sh:ro
-    depends_on:
-      init-data:
-        condition: service_completed_successfully
     <<: *logging
 
   adi:
     image: ${NODE_DOCKER_REPO}:${NODE_DOCKER_TAG}
     container_name: ${PROJECT_NAME}-node
     restart: unless-stopped
-    stop_grace_period: 20m
-    mem_limit: 28g
-    mem_reservation: 16g
+    stop_grace_period: 10m
     working_dir: /app
     environment:
       genesis_bridgehub_address: ${BRIDGEHUB_ADDRESS:-0x7a38c18a229ef8a0ae7104ba272a46280f2d59cb}
@@ -75,8 +57,8 @@ services:
           grep -Eq '"result"[[:space:]]*:[[:space:]]*"0x9024"' <&3
       interval: 30s
       timeout: 10s
-      retries: 10
-      start_period: 15m
+      retries: 5
+      start_period: 120s
     labels:
       - traefik.enable=true
       - traefik.http.routers.${RPC_HOST}.entrypoints=websecure
@@ -104,8 +86,6 @@ services:
       - metrics.network=${NETWORK:-mainnet}
       - metrics.chain_id=${CHAIN_ID:-36900}
     depends_on:
-      init-data:
-        condition: service_completed_successfully
       proof-sync:
         condition: service_started
     <<: *logging

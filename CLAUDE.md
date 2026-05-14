@@ -24,11 +24,10 @@ cp default.env .env && ./adid check-sync; rm .env
 ## Critical rules
 
 - `GENERAL_L1_RPC_URL` must be an **archive** Ethereum L1 RPC. Pruned L1 panics on startup with `state at block is pruned`.
-- All image tags (`NODE_DOCKER_TAG`, `AZCOPY_DOCKER_TAG`, `BUSYBOX_DOCKER_TAG`) are pinned in `default.env`. Never replace with `latest`.
-- `init-data` must run to completion before `proof-sync` and `adi` start — it creates `/chain/db/node1/block_dumps` and `/chain/db/shared` and chmods them `0777`. Do not remove the `depends_on` chain.
+- All image tags (`NODE_DOCKER_TAG`, `AZCOPY_DOCKER_TAG`) are pinned in `default.env`. Never replace with `latest`.
+- `proof-sync` runs `scripts/sync-proofs.sh`, which on startup creates `/chain/db/node1/block_dumps` and `/chain/db/shared` (chmod `0777`) before entering the azcopy loop. The `adi` service `depends_on: proof-sync` so the dirs exist before the node starts — do not remove the dependency.
 - `RPC_PORT` (3050) multiplexes both JSON-RPC HTTP and WebSocket. Both `RPC_LB` and `WS_LB` Traefik load balancers point at this single port.
-- `adi.yml` `mem_limit: 28g` reserves headroom on shared rpc7 hosts; do not unset without coordinating with other chains on the host.
-- Healthcheck `start_period: 15m` accommodates cold start (L1 watcher may block up to 600s waiting for `proof_storage`).
+- `MAIN_RPC_URL` is the upstream main node and also the reference RPC for `check_sync.sh` — for ADI these are the same URL. Do not split into two variables.
 - `check_sync.sh` exit codes: `0=synced, 1=syncing, 3=local RPC error, 4=public RPC error, 5=config error, 6=missing deps, 7=container error`. Exit code `2` (diverged) is intentionally not emitted — for ADI external nodes, the public RPC IS the main node, so divergence is structurally impossible.
 - Compose `${...}` interpolation conflicts with shell `${...}`. Escape shell parameter expansion in healthchecks etc. with `$$` (e.g. `$${#payload}`).
 

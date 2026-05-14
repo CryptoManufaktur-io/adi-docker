@@ -1,13 +1,22 @@
 #!/usr/bin/env sh
-# Mirrors the upstream ADI sync-proofs sidecar:
-# https://github.com/ADI-Foundation-Labs/ADI-Stack-EN-Setup-script
+# Combined data-dir bootstrap + azcopy sync sidecar for the ADI external node.
+# Runs as root in the proof-sync container; the ADI service depends on this
+# container being up before it starts.
 #
-# Bind-mounted into the proof-sync container; runs azcopy in a loop.
+# Responsibilities:
+#   1. Create the chain data dirs the ADI node will write into and make them
+#      world-writable (the node container may run as a non-root uid).
+#   2. Loop forever, calling `azcopy sync` against the Azure Blob proof store
+#      every SYNC_INTERVAL seconds.
+#
+# Upstream reference:
+#   https://github.com/ADI-Foundation-Labs/ADI-Stack-EN-Setup-script
 set -e
 
+CHAIN_DATA_DIR="${CHAIN_DATA_DIR:-/chain}"
+SHARED_PROOF_DIR="${SHARED_PROOF_DIR:-$CHAIN_DATA_DIR/db/shared}"
 SYNC_INTERVAL="${SYNC_INTERVAL:-60}"
 SOURCE="${PROOF_STORAGE_URL:-https://adimainnet.blob.core.windows.net/proofs}"
-DESTINATION="${SHARED_PROOF_DIR:-/chain/db/shared}"
 DELETE_DESTINATION="${DELETE_DESTINATION:-false}"
 
 log() {
@@ -19,17 +28,19 @@ if [ -z "$SOURCE" ]; then
   exit 1
 fi
 
-log "Starting proof storage sync service"
-log "Source: $SOURCE"
-log "Destination: $DESTINATION"
-log "Sync interval: ${SYNC_INTERVAL}s"
-log "Delete destination: $DELETE_DESTINATION"
+log "Bootstrapping chain data dirs under $CHAIN_DATA_DIR"
+mkdir -p "$CHAIN_DATA_DIR/db/node1/block_dumps" "$SHARED_PROOF_DIR"
+chmod -R 0777 "$CHAIN_DATA_DIR"
 
-mkdir -p "$DESTINATION"
+log "Starting proof storage sync service"
+log "Source:             $SOURCE"
+log "Destination:        $SHARED_PROOF_DIR"
+log "Sync interval:      ${SYNC_INTERVAL}s"
+log "Delete destination: $DELETE_DESTINATION"
 
 while true; do
   log "Starting proof sync..."
-  if azcopy sync "$SOURCE" "$DESTINATION" \
+  if azcopy sync "$SOURCE" "$SHARED_PROOF_DIR" \
     --recursive \
     --delete-destination="$DELETE_DESTINATION" \
     --log-level=INFO; then

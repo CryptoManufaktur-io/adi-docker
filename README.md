@@ -1,17 +1,16 @@
 # ADI Docker
 
-Docker Compose deployment for an [ADI Chain](https://adi.foundation/) mainnet external node, used by Galaxy for self-hosted RPC behind Chainlink CCIP.
+Docker Compose deployment for an [ADI Chain](https://adi.foundation/) mainnet external node.
 
 This is adi-docker v0.1.0
 
 ## What it runs
 
-ADI is a zkSync-based zk-rollup L2. The external node is read-only — it replays L2 blocks locally and serves a standard JSON-RPC interface. Three containers run as part of this stack:
+ADI is a zkSync-based zk-rollup L2. The external node is read-only — it replays L2 blocks locally and serves a standard JSON-RPC interface. Two containers run as part of this stack:
 
 | Service | Image | Role |
 |---|---|---|
-| `init-data` | `busybox:1.36.1` | One-shot — creates `/chain/db/node1/block_dumps` and `/chain/db/shared`, chmods them `0777` |
-| `proof-sync` | `peterdavehello/azcopy:10.27.1` | Periodically `azcopy sync` from `adimainnet.blob.core.windows.net/proofs` into `/chain/db/shared` |
+| `proof-sync` | `peterdavehello/azcopy:10.27.1` | On start, creates `/chain/db/node1/block_dumps` and `/chain/db/shared` (chmod `0777`); then loops `azcopy sync` from `adimainnet.blob.core.windows.net/proofs` |
 | `adi` | `harbor.sre.ideasoft.io/adi-chain/external-node:v0.13.0-b1` | ADI external node — JSON-RPC + WS on `:3050`, status on `:3071`, replay on `:3054`, metrics on `:3312` |
 
 Upstream reference: <https://github.com/ADI-Foundation-Labs/ADI-Stack-EN-Setup-script>
@@ -22,7 +21,7 @@ Galaxy runbook: <https://github.com/smartcontractkit/node-ops-wiki/blob/main/doc
 | Component | Recommended |
 |---|---|
 | CPU | 16 cores |
-| RAM | 32 GB (compose enforces `mem_limit: 28g`) |
+| RAM | 32 GB |
 | Storage | 500+ GB NVMe |
 
 Initial sync takes roughly 1 day.
@@ -38,7 +37,7 @@ cp default.env .env
 # edit .env: at minimum set GENERAL_L1_RPC_URL to an archive Ethereum RPC
 ./adid up -d
 ./adid logs -f adi
-# wait ~15 minutes for the healthcheck to flip from starting to healthy
+# wait for the healthcheck to flip from starting to healthy
 ./adid check-sync
 ```
 
@@ -48,7 +47,7 @@ cp default.env .env
 |---|---|
 | `./adid up [-d]` | Start the stack |
 | `./adid down` | Stop and remove containers (volume preserved) |
-| `./adid logs [-f] [service]` | Follow logs (services: `adi`, `proof-sync`, `init-data`) |
+| `./adid logs [-f] [service]` | Follow logs (services: `adi`, `proof-sync`) |
 | `./adid version` | Print container image versions |
 | `./adid check-sync` | Compare local block height against `https://rpc.adifoundation.ai`, also asserts `eth_syncing=false` |
 | `./adid update` | Rebuild env from `default.env` and pull updated images |
@@ -58,15 +57,6 @@ cp default.env .env
 
 - `default.env` ships with `COMPOSE_FILE=adi.yml:rpc-shared.yml` so the local dev workflow can hit `http://127.0.0.1:3050`.
 - Production (via `cmf-ansible-inventory`) overrides this to `COMPOSE_FILE=adi.yml:ext-network.yml` — no `127.0.0.1` binding; traffic comes in over Traefik vhosts.
-
-## Production deployment
-
-Deployed via [`cmf-ansible`](https://github.com/GalaxyBlockchainEngineering/cmf-ansible) with config in [`cmf-ansible-inventory`](https://github.com/GalaxyBlockchainEngineering/cmf-ansible-inventory) under `production/chainlink_inventory.yml`. Traefik routes:
-
-- `adi-a.cryptomanufaktur.net` / `adiws-a.cryptomanufaktur.net` → rpc7-a
-- `adi-c.cryptomanufaktur.net` / `adiws-c.cryptomanufaktur.net` → rpc7-c
-
-Traefik load balancers `adi-lb` / `adiws-lb` fan out across the per-region instances.
 
 ## Ports
 
@@ -88,9 +78,9 @@ All image tags are pinned in `default.env`. Bump deliberately; do not use `lates
 | `Failed to load genesis upgrade transaction: ... state at block is pruned` panic | `GENERAL_L1_RPC_URL` points at a non-archive Ethereum endpoint | Replace with an archive L1 RPC |
 | `Data not found in storage, will retry ... committed batch ... in proof storage` warnings during boot | `proof-sync` hasn't downloaded enough yet (normal on cold start, can run up to 600s) | Wait for first azcopy cycle to finish populating `/chain/db/shared` |
 | `proof-sync` keeps logging `azcopy sync failed with exit code N` | Network outage or auth issue to `adimainnet.blob.core.windows.net` | Check sidecar logs (`./adid logs proof-sync`); endpoint is public anonymous read so usually transient |
-| Healthcheck stays `starting` past 15 minutes | Slow disk, insufficient RAM, or L2 replay lag from cold genesis | `./adid logs adi`; if RocksDB is busy persisting blocks, just wait. If memory pressure is real, bump `mem_limit`. |
+| Healthcheck stays `starting` for several minutes | Slow disk, insufficient RAM, or L2 replay lag from cold genesis | `./adid logs adi`; if RocksDB is busy persisting blocks, just wait. |
 | `./adid logs adi` shows `Connection refused` to `general_l1_rpc_url` | Inventory L1 endpoint down or wrong URL | Verify the L1 host is reachable; check ansible secret rendering |
 
 ## Resource limits
 
-Compose sets `mem_limit: 28g` and `mem_reservation: 16g` on the `adi` service to fence it on shared rpc7 hosts. `stop_grace_period: 20m` allows RocksDB to flush cleanly on shutdown.
+`stop_grace_period: 10m` on the `adi` service lets RocksDB flush cleanly on shutdown. No `mem_limit` / `cpus` are set; rpc7 hosts manage capacity at the host level.
