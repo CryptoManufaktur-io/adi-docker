@@ -69,7 +69,7 @@ services:
         - >-
           payload='{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}';
           exec 3<>/dev/tcp/127.0.0.1/${RPC_PORT:-3050};
-          printf 'POST / HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: %s\r\nConnection: close\r\n\r\n%s' "${#payload}" "$$payload" >&3;
+          printf 'POST / HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: %s\r\nConnection: close\r\n\r\n%s' "$${#payload}" "$$payload" >&3;
           grep -Eq '"result"[[:space:]]*:[[:space:]]*"0x9024"' <&3
       interval: 30s
       timeout: 10s
