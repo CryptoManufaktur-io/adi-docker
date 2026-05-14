@@ -15,7 +15,6 @@ ADI is a zkSync-based zk-rollup L2. The external node is read-only — it replay
 
 - Upstream setup script: <https://github.com/ADI-Foundation-Labs/ADI-Stack-EN-Setup-script>
 - ADI docs: <https://docs.adi.foundation/>
-- Galaxy runbook (GAL-689): <https://github.com/smartcontractkit/node-ops-wiki/blob/main/docs/Blockchains/ADI_Setup_Guide.md>
 
 ## Hardware
 
