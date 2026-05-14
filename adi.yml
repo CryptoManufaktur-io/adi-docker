@@ -73,6 +73,7 @@ services:
       start_period: 120s
     labels:
       - traefik.enable=true
+      - traefik.docker.network=${DOCKER_EXT_NETWORK}
       - traefik.http.routers.${RPC_HOST}.entrypoints=websecure
       - traefik.http.routers.${RPC_HOST}.rule=Host(`${RPC_HOST}.${DOMAIN}`)
       - traefik.http.routers.${RPC_HOST}.tls.certresolver=letsencrypt
