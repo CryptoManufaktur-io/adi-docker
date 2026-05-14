@@ -26,7 +26,7 @@ cp default.env .env && ./adid check-sync; rm .env
 - All image tags in `default.env` are pinned; never replace with `latest`.
 - `proof-sync` runs `scripts/sync-proofs.sh`, which creates `/chain/db/node1/block_dumps` and `/chain/db/shared` (chmod `0777`) before the azcopy loop. The `adi` service `depends_on: proof-sync` — do not remove.
 - `RPC_PORT` 3050 multiplexes HTTP **and** WebSocket; both `RPC_LB` and `WS_LB` Traefik services target this single port (not a typo).
-- `MAIN_RPC_URL` is the upstream main node AND the reference RPC for `check_sync.sh` — same URL; do not split into two variables.
+- `PUBLIC_RPC_URL` doubles as the external node's `general_main_node_rpc_url` and `check_sync.sh`'s reference RPC — same URL; do not split into two variables.
 - `check_sync.sh` exit codes: `0=synced, 1=syncing, 3=local RPC error, 4=public RPC error, 5=config error, 6=missing deps, 7=container error`. Code `2` (diverged) is intentionally not emitted (public RPC IS the main node).
 - Compose `${...}` interpolation conflicts with shell `${...}`; escape shell parameter expansion with `$$` (e.g. `$${#payload}`).
 - `traefik.docker.network=${DOCKER_EXT_NETWORK}` is intentionally omitted. If Traefik later routes to the wrong subnet, add it back.

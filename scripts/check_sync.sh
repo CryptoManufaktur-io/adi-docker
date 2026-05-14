@@ -25,7 +25,7 @@ Options:
   --container NAME         Run curl/jq inside this Docker container
   --compose-service NAME   Resolve container by docker compose service name
   --local-rpc URL          Local JSON-RPC URL (default: http://127.0.0.1:${RPC_PORT:-3050})
-  --public-rpc URL         Public reference RPC URL (default: $MAIN_RPC_URL or https://rpc.adifoundation.ai)
+  --public-rpc URL         Public reference RPC URL (default: $PUBLIC_RPC_URL or https://rpc.adifoundation.ai)
   --block-lag N            Acceptable lag in blocks (default: 5)
   --no-install             Do not install curl/jq inside the container
   --env-file PATH          Path to env file to load (default: ./.env)
@@ -223,10 +223,9 @@ while [[ $# -gt 0 ]]; do
 done
 
 LOCAL_RPC="${LOCAL_RPC:-http://127.0.0.1:${RPC_PORT:-3050}}"
-PUBLIC_RPC="${PUBLIC_RPC:-${MAIN_RPC_URL:-https://rpc.adifoundation.ai}}"
-# Back-compat: --public-rpc / PUBLIC_RPC are accepted for explicit overrides,
-# but default.env only ships MAIN_RPC_URL since the two values are always the
-# same for ADI (the public RPC is the main node).
+PUBLIC_RPC="${PUBLIC_RPC:-${PUBLIC_RPC_URL:-https://rpc.adifoundation.ai}}"
+# Default.env ships PUBLIC_RPC_URL; --public-rpc / PUBLIC_RPC remain accepted
+# as explicit overrides for ad-hoc testing against a mirror.
 
 resolve_container
 

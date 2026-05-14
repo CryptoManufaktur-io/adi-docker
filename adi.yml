@@ -20,6 +20,14 @@ services:
     volumes:
       - adi-data:/chain
       - ./scripts/sync-proofs.sh:/usr/local/bin/sync-proofs.sh:ro
+    healthcheck:
+      # Gate the adi service on the chain data dirs existing. sync-proofs.sh
+      # creates them before entering the azcopy loop; mkdir is idempotent.
+      test: ["CMD-SHELL", "[ -d /chain/db/shared ] && [ -d /chain/db/node1/block_dumps ]"]
+      interval: 5s
+      timeout: 5s
+      retries: 6
+      start_period: 0s
     <<: *logging
 
   adi:
@@ -33,7 +41,7 @@ services:
       genesis_bytecode_supplier_address: ${BYTECODE_SUPPLIER_ADDRESS:-0x6e369e616dd5a5cb0cd410f541c784033de89042}
       genesis_chain_id: ${CHAIN_ID:-36900}
       sequencer_block_replay_download_address: ${REPLAY_DOWNLOAD_URL:-https://replay.adifoundation.ai}
-      general_main_node_rpc_url: ${MAIN_RPC_URL:-https://rpc.adifoundation.ai}
+      general_main_node_rpc_url: ${PUBLIC_RPC_URL:-https://rpc.adifoundation.ai}
       general_rocks_db_path: /chain/db/node1
       prover_api_object_store_file_backed_base_path: /chain/db/shared
       sequencer_block_dump_path: /chain/db/node1/block_dumps
@@ -87,7 +95,7 @@ services:
       - metrics.chain_id=${CHAIN_ID:-36900}
     depends_on:
       proof-sync:
-        condition: service_started
+        condition: service_healthy
     <<: *logging
 
 volumes:
