@@ -11,7 +11,7 @@ ADI is a zkSync-based zk-rollup L2. The external node is read-only — it replay
 | Service | Image | Role |
 |---|---|---|
 | `proof-sync` | `peterdavehello/azcopy:10.27.1` | On start, creates `/chain/db/node1/block_dumps` and `/chain/db/shared` (chmod `0777`); then loops `azcopy sync` from `adimainnet.blob.core.windows.net/proofs` |
-| `adi` | `harbor.sre.ideasoft.io/adi-chain/external-node:v0.13.0-b1` | ADI external node — JSON-RPC + WS on `:3050`, status on `:3071`, replay on `:3054`, metrics on `:3312` |
+| `adi` | `harbor.sde.adifoundation.ai/adi-public/chain/external-node:v0.13.0-b4` | ADI external node — JSON-RPC + WS on `:3050`, status on `:3071`, replay on `:3054`, metrics on `:3312` |
 
 - Upstream setup script: <https://github.com/ADI-Foundation-Labs/ADI-Stack-EN-Setup-script>
 - ADI docs: <https://docs.adi.foundation/>
@@ -69,7 +69,7 @@ cp default.env .env
 
 ## Image pinning
 
-All image tags are pinned in `default.env`. Bump deliberately; do not use `latest`. Upstream `EN_VERSION` is currently `v0.13.0-b1` for mainnet.
+All image tags are pinned in `default.env`. Bump deliberately; do not use `latest`. The external node image is currently pinned to `v0.13.0-b4` for mainnet.
 
 ## Troubleshooting
 
