@@ -34,6 +34,11 @@ services:
     image: ${NODE_DOCKER_REPO}:${NODE_DOCKER_TAG}
     container_name: ${PROJECT_NAME}-node
     restart: unless-stopped
+    ulimits:
+      nofile:
+        soft: 524288
+        hard: 524288
+
     stop_grace_period: 10m
     working_dir: /app
     environment:
