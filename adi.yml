@@ -6,30 +6,6 @@ x-logging: &logging
       max-file: "3"
 
 services:
-  proof-sync:
-    image: ${AZCOPY_DOCKER_REPO}:${AZCOPY_DOCKER_TAG}
-    container_name: ${PROJECT_NAME}-proof-sync
-    restart: unless-stopped
-    entrypoint: ["/bin/sh", "/usr/local/bin/sync-proofs.sh"]
-    environment:
-      PROOF_STORAGE_URL: ${PROOF_STORAGE_URL:-https://adimainnet.blob.core.windows.net/proofs}
-      CHAIN_DATA_DIR: /chain
-      SHARED_PROOF_DIR: /chain/db/shared
-      SYNC_INTERVAL: ${PROOF_SYNC_INTERVAL:-60}
-      DELETE_DESTINATION: ${PROOF_SYNC_DELETE:-false}
-    volumes:
-      - adi-data:/chain
-      - ./scripts/sync-proofs.sh:/usr/local/bin/sync-proofs.sh:ro
-    healthcheck:
-      # Gate the adi service on the chain data dirs existing. sync-proofs.sh
-      # creates them before entering the azcopy loop; mkdir is idempotent.
-      test: ["CMD-SHELL", "[ -d /chain/db/shared ] && [ -d /chain/db/node1/block_dumps ]"]
-      interval: 5s
-      timeout: 5s
-      retries: 6
-      start_period: 0s
-    <<: *logging
-
   adi:
     image: ${NODE_DOCKER_REPO}:${NODE_DOCKER_TAG}
     container_name: ${PROJECT_NAME}-node
@@ -45,21 +21,29 @@ services:
       genesis_bridgehub_address: ${BRIDGEHUB_ADDRESS:-0x7a38c18a229ef8a0ae7104ba272a46280f2d59cb}
       genesis_bytecode_supplier_address: ${BYTECODE_SUPPLIER_ADDRESS:-0x6e369e616dd5a5cb0cd410f541c784033de89042}
       genesis_chain_id: ${CHAIN_ID:-36900}
-      sequencer_block_replay_download_address: ${REPLAY_DOWNLOAD_URL:-https://replay.adifoundation.ai}
       general_main_node_rpc_url: ${PUBLIC_RPC_URL:-https://rpc.adifoundation.ai}
       general_rocks_db_path: /chain/db/node1
-      prover_api_object_store_file_backed_base_path: /chain/db/shared
       sequencer_block_dump_path: /chain/db/node1/block_dumps
-      sequencer_block_replay_server_address: 0.0.0.0:${REPLAY_PORT:-3054}
       rpc_address: 0.0.0.0:${RPC_PORT:-3050}
       status_server_address: 0.0.0.0:${STATUS_PORT:-3071}
       observability_prometheus_port: ${METRICS_PORT:-3312}
-      general_l1_rpc_url: ${GENERAL_L1_RPC_URL}
+      l1_provider_rpc_url: ${GENERAL_L1_RPC_URL}
       genesis_genesis_input_path: /genesis/genesis.json
+      general_node_role: external
+      network_enabled: "true"
+      network_host: 0.0.0.0
+      network_port: ${NETWORK_PORT:-3060}
+      network_secret_key: ${EXTERNAL_NETWORK_SECRET_KEY}
+      network_boot_nodes: ${BOOT_NODE_URLS}
       RUST_LOG: ${RUST_LOG:-info,zksync_os_server=info,zksync_os_sequencer=info,zksync_os_merkle_tree=info,zksync_os_priority_tree=info,zksync_os_server::prover_api=info}
     volumes:
       - adi-data:/chain
       - ./genesis/mainnet.json:/genesis/genesis.json:ro
+    ports:
+      # P2P (devp2p) — replaces the old HTTP block-replay transport. Must be
+      # published on the host directly; Traefik only proxies the RPC vhosts.
+      - "${NETWORK_PORT:-3060}:${NETWORK_PORT:-3060}/tcp"
+      - "${NETWORK_PORT:-3060}:${NETWORK_PORT:-3060}/udp"
     healthcheck:
       # bash is required for /dev/tcp/HOST/PORT (the default /bin/sh in this
       # image is dash, which does not implement the /dev/tcp pseudo-device).
@@ -103,9 +87,6 @@ services:
       - metrics.instance=adi
       - metrics.network=${NETWORK:-mainnet}
       - metrics.chain_id=${CHAIN_ID:-36900}
-    depends_on:
-      proof-sync:
-        condition: service_healthy
     <<: *logging
 
 volumes:

@@ -23,13 +23,10 @@ version() {
   grep "^This is" README.md
   echo
 
-  local __node_repo __node_tag __azcopy_repo __azcopy_tag
+  local __node_repo __node_tag
   __get_value_from_env "NODE_DOCKER_REPO" "${__env_file}" "__node_repo"
   __get_value_from_env "NODE_DOCKER_TAG" "${__env_file}" "__node_tag"
-  __get_value_from_env "AZCOPY_DOCKER_REPO" "${__env_file}" "__azcopy_repo"
-  __get_value_from_env "AZCOPY_DOCKER_TAG" "${__env_file}" "__azcopy_tag"
   echo "ADI external node:  ${__node_repo}:${__node_tag}"
-  echo "Proof-sync sidecar: ${__azcopy_repo}:${__azcopy_tag}"
 }
 
 

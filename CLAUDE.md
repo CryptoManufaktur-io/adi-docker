@@ -5,7 +5,7 @@ See README.md for project overview, ports, troubleshooting, compose overlays, an
 ## Build & Validate
 
 ```bash
-shellcheck -x ethd scripts/check_sync.sh scripts/sync-proofs.sh
+shellcheck -x ethd scripts/check_sync.sh
 pre-commit run --all-files
 ./adid help && ./adid -h
 cp default.env .env && ./adid check-sync; rm .env
@@ -24,7 +24,8 @@ cp default.env .env && ./adid check-sync; rm .env
 
 - `GENERAL_L1_RPC_URL` must be an **archive** Ethereum L1 RPC. Pruned L1 panics with `state at block is pruned`.
 - All image tags in `default.env` are pinned; never replace with `latest`.
-- `proof-sync` runs `scripts/sync-proofs.sh`, which creates `/chain/db/node1/block_dumps` and `/chain/db/shared` (chmod `0777`) before the azcopy loop. The `adi` service `depends_on: proof-sync` — do not remove.
+- As of v0.20.12 (BCE-11659), there is no `proof-sync` sidecar — ENs sync via P2P and don't use proof storage. `EXTERNAL_NETWORK_SECRET_KEY` and `BOOT_NODE_URLS` are required for the node to peer at all; the secret key is unique per node and must be set explicitly (this compose doesn't run ADI's `external-node.sh`, which would otherwise auto-generate one).
+- Port `3060` (P2P, TCP+UDP) must be published directly on the host (`ports:` in `adi.yml`) and allowed through the host firewall — Traefik does not proxy it.
 - `RPC_PORT` 3050 multiplexes HTTP **and** WebSocket; both `RPC_LB` and `WS_LB` Traefik services target this single port (not a typo).
 - `PUBLIC_RPC_URL` doubles as the external node's `general_main_node_rpc_url` and `check_sync.sh`'s reference RPC — same URL; do not split into two variables.
 - `check_sync.sh` exit codes: `0=synced, 1=syncing, 3=local RPC error, 4=public RPC error, 5=config error, 6=missing deps, 7=container error`. Code `2` (diverged) is intentionally not emitted (public RPC IS the main node).
@@ -38,5 +39,5 @@ When upstream `EN_VERSION` bumps (`docker-compose.mainnet.yml` in `ADI-Foundatio
 ## ethd customization points
 
 - `__project_name`, `__app_name`, `__sample_service` — already set to ADI.
-- `version()` — prints `adi` and `proof-sync` image tags.
+- `version()` — prints the `adi` image tag.
 - `__prep_conffiles()` — no-op; genesis is bind-mounted from `genesis/mainnet.json`.
